@@ -34,7 +34,9 @@ const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [openAdmin, setOpenAdmin] = useState(false);
+  const role = localStorage.getItem("role"); // 👈 Get role
 
+  // Expand admin dropdown if already on admin page
   useEffect(() => {
     const isAdminPath = adminMenuItems.some((item) =>
       location.pathname.includes(item.path)
@@ -71,43 +73,49 @@ const Dashboard = () => {
             }}
           >
             <List>
-              {/* Admin Dropdown */}
-              <ListItemButton onClick={handleAdminClick}>
-                <ListItemIcon>
-                  <FolderIcon />
-                </ListItemIcon>
-                <ListItemText primary="Admin" />
-                {openAdmin ? <ExpandLess /> : <ExpandMore />}
-              </ListItemButton>
+              {/* Only render Admin dropdown for role 1 */}
+              {role === "1" && (
+                <>
+                  <ListItemButton onClick={handleAdminClick}>
+                    <ListItemIcon>
+                      <FolderIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Admin" />
+                    {openAdmin ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
 
-              <Collapse in={openAdmin} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding>
-                  {adminMenuItems.map((item, index) => (
-                    <ListItemButton
-                      key={index}
-                      sx={{
-                        pl: 5,
-                        py: 1.2,
-                        "&:hover": { backgroundColor: "#e3f2fd" },
-                        backgroundColor:
-                          location.pathname.endsWith(item.path) ? "#bbdefb" : "inherit",
-                      }}
-                      onClick={() => navigate(item.path)}
-                    >
-                      <ListItemIcon sx={{ minWidth: "32px" }}>{item.icon}</ListItemIcon>
-                      <ListItemText
-                        primary={item.text}
-                        primaryTypographyProps={{
-                          fontSize: "0.85rem",
-                          noWrap: true,
-                        }}
-                      />
-                    </ListItemButton>
-                  ))}
-                </List>
-              </Collapse>
+                  <Collapse in={openAdmin} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      {adminMenuItems.map((item, index) => (
+                        <ListItemButton
+                          key={index}
+                          sx={{
+                            pl: 5,
+                            py: 1.2,
+                            "&:hover": { backgroundColor: "#e3f2fd" },
+                            backgroundColor:
+                              location.pathname.endsWith(item.path)
+                                ? "#bbdefb"
+                                : "inherit",
+                          }}
+                          onClick={() => navigate(item.path)}
+                        >
+                          <ListItemIcon sx={{ minWidth: "32px" }}>{item.icon}</ListItemIcon>
+                          <ListItemText
+                            primary={item.text}
+                            primaryTypographyProps={{
+                              fontSize: "0.85rem",
+                              noWrap: true,
+                            }}
+                          />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Collapse>
+                </>
+              )}
 
-              {/* Timesheet - separate option */}
+              {/* Common menu items visible to all */}
               <ListItemButton
                 sx={{
                   pl: 3,
@@ -128,7 +136,7 @@ const Dashboard = () => {
             <Divider />
           </Drawer>
 
-          {/* Main Content Area */}
+          {/* Main Content */}
           <Box
             component="main"
             sx={{
@@ -142,9 +150,9 @@ const Dashboard = () => {
             }}
           >
             <Box sx={{ flex: 1 }}>
-              <Outlet /> {/* ✅ Subpages load here */}
+              <Outlet />
             </Box>
-            <Footer /> {/* ✅ Footer at bottom */}
+            <Footer />
           </Box>
         </Box>
       </Box>

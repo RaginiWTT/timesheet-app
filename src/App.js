@@ -5,6 +5,10 @@ import ResourceManagement from "./pages/ResourceManagement";
 import Timesheet from "./pages/Timesheet";
 import AddResource from "./pages/AddResource";
 import UpdateResource from "./pages/UpdateResource";
+import NotAuthorized from "./components/NotAuthorized";
+import ProtectedRoute from "./components/ProtectedRoute";
+import CustomerManagement from "./pages/CustomerManagement";
+import AddCustomer from "./pages/AddCustomer";
 
 function App() {
   return (
@@ -14,13 +18,71 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* Protected / Dashboard Routes */}
-        <Route path="/dashboard" element={<Dashboard />}>
-          <Route path="resource" element={<ResourceManagement />} />
-          <Route path="timesheet" element={<Timesheet />} />
-          <Route path="resource/add" element={<AddResource />} /> 
-           <Route path="resource/update/:resourceId" element={<UpdateResource />} /> {/* ✅ New */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["1", "2"]}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        >
+          {/* Admin only pages */}
+          <Route
+            path="resource"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <ResourceManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="resource/add"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <AddResource />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="resource/update/:resourceId"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <UpdateResource />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="customer/add"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <AddCustomer />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="customer"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <CustomerManagement />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Pages for multiple roles */}
+          <Route
+            path="timesheet"
+            element={
+              <ProtectedRoute allowedRoles={["1", "2"]}>
+                <Timesheet />
+              </ProtectedRoute>
+            }
+          />
         </Route>
+
+        {/* Fallbacks */}
         <Route path="*" element={<Login />} />
+        <Route path="/not-authorized" element={<NotAuthorized />} />
       </Routes>
     </Router>
   );
