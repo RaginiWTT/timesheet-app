@@ -51,13 +51,22 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
+          {/* <Route
             path="customer/add"
             element={
               <ProtectedRoute allowedRoles={["1"]}>
                 <AddCustomer />
               </ProtectedRoute>
             }
+          /> */}
+
+          <Route
+            path="customer/add"
+            element={<AddCustomer />} // Add Mode
+          />
+          <Route
+            path="customer/update/:id"
+            element={<AddCustomer />} // Update Mode using same form
           />
 
           <Route
