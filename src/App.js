@@ -9,6 +9,7 @@ import NotAuthorized from "./components/NotAuthorized";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CustomerManagement from "./pages/CustomerManagement";
 import AddCustomer from "./pages/AddCustomer";
+import ProjectManagement from "./pages/ProjectManagement";
 
 function App() {
   return (
@@ -74,6 +75,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["1"]}>
                 <CustomerManagement />
+              </ProtectedRoute>
+            }
+          />
+
+          
+          <Route
+            path="project"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <ProjectManagement />
               </ProtectedRoute>
             }
           />
