@@ -153,7 +153,7 @@ const handleModify = (id) => {
                 sx={{ backgroundColor: "#f1f1f1", fontWeight: "bold" }}
                 align="center"
               >
-                Modify
+                Actions
               </TableCell>
             </TableRow>
           </TableHead>

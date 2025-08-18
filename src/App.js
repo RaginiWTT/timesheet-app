@@ -11,6 +11,8 @@ import CustomerManagement from "./pages/CustomerManagement";
 import AddCustomer from "./pages/AddCustomer";
 import ProjectManagement from "./pages/ProjectManagement";
 import AddUpdateProject from "./pages/AddUpdateProject";
+import ProjectTaskManagement from "./pages/ProjectTaskManagement";
+import AddUpdateTask from "./pages/AddUpdateTask";
 
 function App() {
   return (
@@ -45,11 +47,32 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+      
           <Route
             path="resource/update/:resourceId"
             element={
               <ProtectedRoute allowedRoles={["1"]}>
                 <UpdateResource />
+              </ProtectedRoute>
+            }
+          />
+
+               <Route
+            path="task/add"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <AddUpdateTask />
+              </ProtectedRoute>
+            }
+          />
+
+      
+          <Route
+            path="task/update/:id"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <AddUpdateTask />
               </ProtectedRoute>
             }
           />
@@ -90,6 +113,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["1"]}>
                 <ProjectManagement />
+              </ProtectedRoute>
+            }
+          />
+
+                 <Route
+            path="task"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <ProjectTaskManagement />
               </ProtectedRoute>
             }
           />
