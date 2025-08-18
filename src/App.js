@@ -10,6 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import CustomerManagement from "./pages/CustomerManagement";
 import AddCustomer from "./pages/AddCustomer";
 import ProjectManagement from "./pages/ProjectManagement";
+import AddUpdateProject from "./pages/AddUpdateProject";
 
 function App() {
   return (
@@ -60,6 +61,10 @@ function App() {
               </ProtectedRoute>
             }
           /> */}
+
+               {/* Project add / update using same component */}
+          <Route path="project/add" element={<AddUpdateProject />} />
+          <Route path="project/update/:id" element={<AddUpdateProject />} />
 
           <Route
             path="customer/add"
