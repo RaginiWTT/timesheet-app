@@ -13,6 +13,8 @@ import ProjectManagement from "./pages/ProjectManagement";
 import AddUpdateProject from "./pages/AddUpdateProject";
 import ProjectTaskManagement from "./pages/ProjectTaskManagement";
 import AddUpdateTask from "./pages/AddUpdateTask";
+import AssignResourceManagement from "./pages/AssignResourceManagement";
+import AddUpdateAssignResource from "./pages/AddUpdateAssignResource";
 
 function App() {
   return (
@@ -47,6 +49,18 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+           <Route
+            path="assign-resource/add-update"
+            element={
+              <ProtectedRoute allowedRoles={["1"]}>
+                <AddUpdateAssignResource />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="assign-resource/add-update/:id" 
+          element={<ProtectedRoute allowedRoles={["1"]}><AddUpdateAssignResource />
+          </ProtectedRoute>} />
 
       
           <Route
@@ -116,6 +130,12 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route path="assign-resource" 
+          element={<ProtectedRoute allowedRoles={["1"]}>
+            <AssignResourceManagement />
+            </ProtectedRoute>} />
+
 
                  <Route
             path="task"

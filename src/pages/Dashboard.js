@@ -28,6 +28,7 @@ const adminMenuItems = [
   { text: "Customer Management", icon: <GroupIcon />, path: "customer" },
   { text: "Project Management", icon: <FolderIcon />, path: "project" },
   { text: "Project Task Management", icon: <AssignmentIcon />, path: "task" },
+  { text: "Assign Resource to Project", icon: <AssignmentIcon />, path: "assign-resource" },
 ];
 
 const Dashboard = () => {
