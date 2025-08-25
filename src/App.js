@@ -15,6 +15,7 @@ import ProjectTaskManagement from "./pages/ProjectTaskManagement";
 import AddUpdateTask from "./pages/AddUpdateTask";
 import AssignResourceManagement from "./pages/AssignResourceManagement";
 import AddUpdateAssignResource from "./pages/AddUpdateAssignResource";
+import TimesheetDashboard from "./pages/TimesheetDashboard";
 
 function App() {
   return (
@@ -32,6 +33,15 @@ function App() {
             </ProtectedRoute>
           }
         >
+
+            {/* <Route
+    path="timesheet-dashboard"
+    element={
+      <ProtectedRoute allowedRoles={["2"]}>
+        <TimesheetDashboard />
+      </ProtectedRoute>
+    }
+  /> */}
           {/* Admin only pages */}
           <Route
             path="resource"
@@ -155,7 +165,18 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+       
         </Route>
+
+               <Route
+    path="timesheet-dashboard"
+    element={
+      <ProtectedRoute allowedRoles={["2"]}>
+        <TimesheetDashboard />
+      </ProtectedRoute>
+    }
+  />
 
         {/* Fallbacks */}
         <Route path="*" element={<Login />} />

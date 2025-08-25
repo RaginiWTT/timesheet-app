@@ -58,7 +58,8 @@ function Login() {
       if (res.data.roleName === "ADMIN") {
         navigate("/dashboard");
       } else {
-        navigate("/user-dashboard");
+       // navigate("/dashboard/timesheet-dashboard");
+        navigate("/timesheet-dashboard");
       }
     } catch (err) {
       setError("Invalid credentials. Please try again.");
