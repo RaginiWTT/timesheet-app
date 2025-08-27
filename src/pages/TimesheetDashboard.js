@@ -1,32 +1,12 @@
 import React, { useState, useEffect } from "react";
 import {
-  Box,
-  Typography,
-  Drawer,
-  Divider,
-  Toolbar,
-  CssBaseline,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Select,
-  MenuItem,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  Box, Drawer, Toolbar, Typography, Divider, Table, TableHead,
+  TableRow, TableCell, TableBody, TextField, MenuItem,
+  Button, Dialog, DialogTitle, DialogContent, DialogActions
 } from "@mui/material";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
+import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
+import { format, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
 import AddIcon from "@mui/icons-material/Add";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -35,245 +15,292 @@ const drawerWidth = 280;
 
 const TimesheetDashboard = () => {
   const [selectedWeek, setSelectedWeek] = useState({ start: null, end: null });
+  const [weekDates, setWeekDates] = useState([]);
   const [rows, setRows] = useState([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogData, setDialogData] = useState({ rowId: null, date: null, description: "", hours: "" });
+  const [openDialog, setOpenDialog] = useState(false);
+  const [currentEdit, setCurrentEdit] = useState({ rowIndex: null, date: null });
+  const [billableHours, setBillableHours] = useState("");
+  const [nonBillableHours, setNonBillableHours] = useState("");
+  const [description, setDescription] = useState("");
 
-  // Mock project/task data
-  const projects = [
-    { id: 1, name: "Timesheet App" },
-    { id: 2, name: "ERP System" },
-  ];
-  const tasks = {
-    1: [{ id: 1, name: "Build UI" }, { id: 2, name: "Backend API" }],
-    2: [{ id: 3, name: "Database Schema" }, { id: 4, name: "Integrations" }],
-  };
+  const [projects, setProjects] = useState([]);     // project dropdown data
+  const [tasks, setTasks] = useState({});           // tasks mapped by projectId
 
-  const userName = localStorage.getItem("userName") || "John Doe";
-  const email = localStorage.getItem("email") || "john.doe@example.com";
-
-  // Restore saved data
+  const userName = localStorage.getItem("firstName") + " " + localStorage.getItem("lastName");
+  const email = localStorage.getItem("emailId");
+  const resourceId = localStorage.getItem("resourceId");
+   const token = localStorage.getItem("accessToken");
+  // Fetch projects for logged-in user
   useEffect(() => {
-    const savedData = localStorage.getItem("timesheetData");
-    if (savedData) {
-      setRows(JSON.parse(savedData));
-    }
-  }, []);
+    const fetchProjects = async () => {
+      if (!resourceId || !token) return;
+      try {
+        const res = await fetch(
+          `http://localhost:8080/api/assign-resource/resource/${resourceId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!res.ok) throw new Error("Failed to fetch projects");
+        const data = await res.json();
+        setProjects(data); // response is an array
+      } catch (err) {
+        console.error("Error fetching projects:", err);
+      }
+    };
+    fetchProjects();
+  }, [resourceId, token]);
 
+  // Fetch tasks by projectId
+  // Fetch tasks by projectId
+const fetchTasks = async (projectId) => {
+  if (!projectId || !token) return;
+  try {
+    const res = await fetch(
+      `http://localhost:8080/api/tasks/by-project/${projectId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    if (!res.ok) throw new Error("Failed to fetch tasks");
+    const data = await res.json();
+
+    // Save tasks under the projectId
+    setTasks((prev) => ({ ...prev, [projectId]: data }));
+  } catch (err) {
+    console.error("Error fetching tasks:", err);
+  }
+};
+
+
+
+
+  // Week selection
   const handleDateSelect = (date) => {
-    if (!date) return;
     const start = startOfWeek(date, { weekStartsOn: 1 });
     const end = endOfWeek(date, { weekStartsOn: 1 });
     setSelectedWeek({ start, end });
+    setWeekDates(eachDayOfInterval({ start, end }));
   };
 
+  // Add row
   const handleAddRow = () => {
-    setRows([
-      ...rows,
-      { projectId: "", taskId: "", hours: {}, descriptions: {}, id: Date.now() },
-    ]);
+    const newRow = { project: "", task: "", hours: {} };
+    setRows([...rows, newRow]);
   };
 
-  const handleRowChange = (rowId, field, value) => {
-    setRows((prev) =>
-      prev.map((row) => (row.id === rowId ? { ...row, [field]: value } : row))
-    );
+  // Open popup
+  const handleCellClick = (rowIndex, date) => {
+    setCurrentEdit({ rowIndex, date });
+    const existing =
+      rows[rowIndex].hours[date.toDateString()] || { billable: 0, nonBillable: 0, description: "" };
+    setBillableHours(existing.billable || "");
+    setNonBillableHours(existing.nonBillable || "");
+    setDescription(existing.description || "");
+    setOpenDialog(true);
   };
 
-  // Popup logic
-  const handleOpenDialog = (rowId, date, currentHour, currentDesc) => {
-    setDialogData({
-      rowId,
-      date,
-      hours: currentHour || "",
-      description: currentDesc || "",
+  // Save popup values
+  const handleSaveHours = () => {
+    if (!billableHours || !description) {
+      alert("Billable Hours and Description are required");
+      return;
+    }
+    const updated = [...rows];
+    updated[currentEdit.rowIndex].hours[currentEdit.date.toDateString()] = {
+      billable: Number(billableHours),
+      nonBillable: Number(nonBillableHours),
+      description,
+    };
+    setRows(updated);
+    setOpenDialog(false);
+  };
+
+  // Row total
+  const getRowTotal = (row) => {
+    let billable = 0, nonBillable = 0;
+    Object.values(row.hours).forEach((h) => {
+      billable += h.billable || 0;
+      nonBillable += h.nonBillable || 0;
     });
-    setDialogOpen(true);
+    return { billable, nonBillable };
   };
 
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setDialogData({ rowId: null, date: null, description: "", hours: "" });
+  // Grand total
+  const getGrandTotal = () => {
+    let billable = 0, nonBillable = 0;
+    rows.forEach((row) => {
+      Object.values(row.hours).forEach((h) => {
+        billable += h.billable || 0;
+        nonBillable += h.nonBillable || 0;
+      });
+    });
+    return { billable, nonBillable };
   };
 
-  const handleSaveDialog = () => {
-    const { rowId, date, hours, description } = dialogData;
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === rowId
-          ? {
-              ...row,
-              hours: { ...row.hours, [date.toDateString()]: hours || 0 },
-              descriptions: { ...row.descriptions, [date.toDateString()]: description },
-            }
-          : row
-      )
-    );
-    handleCloseDialog();
+  const handleSave = () => {
+    alert("Timesheet saved (mock, no localStorage now)");
   };
 
-  // Save to localStorage
-  const handleSaveToLocal = () => {
-    localStorage.setItem("timesheetData", JSON.stringify(rows));
-    alert("Timesheet saved locally ✅");
-  };
-
-  // Submit (for now mock)
   const handleSubmit = () => {
-    console.log("Submitting Timesheet:", rows);
-    alert("Timesheet submitted 🚀 (mock)");
+    alert("Timesheet submitted!");
   };
 
   return (
-    <Box sx={{ display: "flex" }}>
-      <CssBaseline />
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <Header />
-
-      {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: "border-box", backgroundColor: "#f5f5f5" },
-        }}
-      >
-        <Toolbar />
-        <Box sx={{ p: 2 }}>
-          <Typography variant="h6">MyTimesheet</Typography>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle1">{userName}</Typography>
-          <Typography variant="body2" color="textSecondary">{email}</Typography>
-          <Divider sx={{ my: 2 }} />
-
-          <Typography variant="subtitle2" sx={{ mt: 2 }}>Select Week</Typography>
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              label="Pick any day"
-              value={selectedWeek.start}
-              onChange={handleDateSelect}
-              slotProps={{ textField: { fullWidth: true, size: "small" } }}
-            />
-          </LocalizationProvider>
-
-          {selectedWeek.start && selectedWeek.end && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2">Week Start: {selectedWeek.start.toDateString()}</Typography>
-              <Typography variant="body2">Week End: {selectedWeek.end.toDateString()}</Typography>
-            </Box>
-          )}
-        </Box>
-      </Drawer>
-
-      {/* Main */}
-      <Box component="main" sx={{ flexGrow: 1, bgcolor: "background.default", p: 3, minHeight: "100vh" }}>
-        <Toolbar />
-        <Paper sx={{ p: 4, minHeight: "80vh" }}>
-          <Typography variant="h5">Timesheet</Typography>
-
-          {selectedWeek.start && selectedWeek.end ? (
-            <TableContainer sx={{ mt: 3 }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold" }}>Project</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Task</TableCell>
-                    {eachDayOfInterval({ start: selectedWeek.start, end: selectedWeek.end }).map((date) => (
-                      <TableCell key={date.toDateString()} sx={{ fontWeight: "bold" }}>
-                        {date.toLocaleDateString()}
-                      </TableCell>
-                    ))}
-                    <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <Select value={row.projectId} onChange={(e) => handleRowChange(row.id, "projectId", e.target.value)} fullWidth size="small">
-                          {projects.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select value={row.taskId} onChange={(e) => handleRowChange(row.id, "taskId", e.target.value)} fullWidth size="small" disabled={!row.projectId}>
-                          {row.projectId && tasks[row.projectId]?.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
-                        </Select>
-                      </TableCell>
-                      {eachDayOfInterval({ start: selectedWeek.start, end: selectedWeek.end }).map((date) => (
-                        <TableCell
-                          key={date.toDateString()}
-                          onClick={() => handleOpenDialog(row.id, date, row.hours[date.toDateString()], row.descriptions[date.toDateString()])}
-                          sx={{ cursor: "pointer" }}
-                        >
-                          {row.hours[date.toDateString()] || 0}
-                        </TableCell>
-                      ))}
-                      <TableCell>
-                        <IconButton onClick={handleAddRow}><AddIcon /></IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {rows.length === 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddRow}>Add Project|Task</Button>
-                </Box>
-              )}
-            </TableContainer>
-          ) : (
-            <Typography sx={{ mt: 3 }}>Select a week to start filling timesheet.</Typography>
-          )}
-        </Paper>
-
-        {/* Fixed Save & Submit Buttons */}
-        <Box
+      <Box sx={{ display: "flex", flexGrow: 1, overflow: "hidden" }}>
+        {/* Sidebar */}
+        <Drawer
+          variant="permanent"
           sx={{
-            position: "fixed",
-            bottom: 0,
-            left: drawerWidth,
-            right: 0,
-            p: 2,
-            bgcolor: "white",
-            borderTop: "1px solid #ddd",
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 2,
+            width: drawerWidth,
+            flexShrink: 0,
+            [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: "border-box", backgroundColor: "#f0f0f0" },
           }}
         >
-          <Button variant="outlined" onClick={handleSaveToLocal}>Save</Button>
-          <Button variant="contained" onClick={handleSubmit}>Submit</Button>
+          <Toolbar />
+          <Box sx={{ p: 2 }}>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>Name : {userName}</Typography>
+            <Typography variant="body2" color="textSecondary">Email : {email}</Typography>
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: "bold" }}>Select Week</Typography>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label="Pick any day"
+                value={selectedWeek.start}
+                onChange={handleDateSelect}
+                slotProps={{ textField: { fullWidth: true, size: "small" } }}
+              />
+            </LocalizationProvider>
+          </Box>
+        </Drawer>
+
+        {/* Main Content */}
+        <Box component="main" sx={{ flexGrow: 1, p: 3, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <Toolbar />
+          {weekDates.length > 0 && (
+            <>
+              <Box sx={{ mt: 3, flexGrow: 1, display: "flex", flexDirection: "column", border: "1px solid #ddd", borderRadius: "8px", overflow: "hidden" }}>
+                <Box sx={{ flexGrow: 1, overflow: "auto" }}>
+                  <Table stickyHeader>
+                    <TableHead>
+                      <TableRow sx={{ "& th": { backgroundColor: "#f0f0f0" } }}>
+                        <TableCell><b>Project</b></TableCell>
+                        <TableCell><b>Task</b></TableCell>
+                        {weekDates.map((date) => (
+                          <TableCell key={date}>
+                            <b>{format(date, "MMM-dd-yyyy")}</b><br />
+                            <small>{format(date, "EEE")}</small>
+                          </TableCell>
+                        ))}
+                        <TableCell><b>Billable | NonBillable Hours</b></TableCell>
+                      </TableRow>
+                    </TableHead>
+
+                    <TableBody>
+                      {rows.map((row, rowIndex) => {
+                        const totals = getRowTotal(row);
+                        return (
+                          <TableRow key={rowIndex}>
+                            {/* Project dropdown */}
+                            <TableCell>
+                              <TextField
+                                select
+                                value={row.project}
+                                onChange={(e) => {
+                                  const updated = [...rows];
+                                  updated[rowIndex].project = e.target.value;
+                                  updated[rowIndex].task = "";
+                                  setRows(updated);
+                                  fetchTasks(e.target.value);
+                                }}
+                                fullWidth size="small"
+                              >
+                                {projects.map((p) => (
+                                  <MenuItem key={p.projectId} value={p.projectId}>{p.projectName}</MenuItem>
+                                ))}
+                              </TextField>
+                            </TableCell>
+
+                            {/* Task dropdown */}
+                            <TableCell>
+                              <TextField
+                                select
+                                value={row.task}
+                                onChange={(e) => {
+                                  const updated = [...rows];
+                                  updated[rowIndex].task = e.target.value;
+                                  setRows(updated);
+                                }}
+                                fullWidth size="small"
+                              >
+                                {(tasks[row.project] || []).map((t) => (
+                                  <MenuItem key={t.taskId} value={t.taskId}>{t.taskName}</MenuItem>
+                                ))}
+                              </TextField>
+                            </TableCell>
+
+                            {/* Hours per day */}
+                            {weekDates.map((date) => (
+                              <TableCell key={date}>
+                                <TextField
+                                  value={
+                                    row.hours[date.toDateString()]
+                                      ? `${row.hours[date.toDateString()].billable || 0} | ${row.hours[date.toDateString()].nonBillable || 0}`
+                                      : "0 | 0"
+                                  }
+                                  onClick={() => handleCellClick(rowIndex, date)}
+                                  fullWidth InputProps={{ readOnly: true }}
+                                />
+                              </TableCell>
+                            ))}
+
+                            <TableCell>{totals.billable} | {totals.nonBillable}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </Box>
+
+              <Box sx={{ mt: 2 }}>
+                <TextField value={`Grand Total: ${getGrandTotal().billable} | ${getGrandTotal().nonBillable}`} fullWidth InputProps={{ readOnly: true }} />
+              </Box>
+
+              <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between" }}>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddRow}>
+                  Add Project | Task
+                </Button>
+                <Box sx={{ display: "flex", gap: 2 }}>
+                  <Button variant="outlined" onClick={handleSave}>Save</Button>
+                  <Button variant="contained" onClick={handleSubmit}>Submit</Button>
+                </Box>
+              </Box>
+            </>
+          )}
+
+          {/* Popup dialog */}
+          <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+            <DialogTitle>Enter Details</DialogTitle>
+            <DialogContent>
+              <TextField label="Description" fullWidth margin="normal" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <TextField label="Billable Hours" type="number" fullWidth margin="normal" value={billableHours} onChange={(e) => setBillableHours(e.target.value)} />
+              <TextField label="Non-Billable Hours" type="number" fullWidth margin="normal" value={nonBillableHours} onChange={(e) => setNonBillableHours(e.target.value)} />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+              <Button onClick={handleSaveHours} variant="contained">OK</Button>
+            </DialogActions>
+          </Dialog>
         </Box>
-
-        <Footer />
       </Box>
-
-      {/* Popup Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog}>
-        <DialogTitle>Fill Timesheet</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Description"
-            fullWidth
-            margin="dense"
-            value={dialogData.description}
-            onChange={(e) => setDialogData({ ...dialogData, description: e.target.value })}
-          />
-          <TextField
-            label="Hours"
-            type="number"
-            fullWidth
-            margin="dense"
-            value={dialogData.hours}
-            onChange={(e) => setDialogData({ ...dialogData, hours: e.target.value })}
-            inputProps={{ min: 0, max: 24 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSaveDialog} variant="contained">OK</Button>
-        </DialogActions>
-      </Dialog>
+      <Footer />
     </Box>
   );
 };

@@ -66,9 +66,10 @@ const AssignResourceManagement = () => {
   const fetchAssignments = async () => {
     setLoading(true);
     try {
-      let url = "http://localhost:8080/api/assign-resource/all";
+      //let url = "http://localhost:8080/api/assign-resource/all";
+      let url="";
       if (selectedProject) {
-        url = `http://localhost:8080/api/assign-resource/project/${selectedProject}`;
+         url = `http://localhost:8080/api/assign-resource/project/${selectedProject}`;
       }
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
