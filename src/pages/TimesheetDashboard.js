@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from "react";
 import {
-  Box, Drawer, Toolbar, Typography, Divider, Table, TableHead,
+  Box,Paper, Drawer, Toolbar, Typography, Divider, Table, TableHead,TableContainer,
   TableRow, TableCell, TableBody, TextField, MenuItem,
   Button, Dialog, DialogTitle, DialogContent, DialogActions
 } from "@mui/material";
+// import {
+//   Box,
+//   Paper,              // 👈 Add this
+//   Table,
+//   TableBody,
+//   TableCell,
+//   TableContainer,
+//   TableHead,
+//   TableRow,
+//   TextField,
+//   MenuItem,
+// } from '@mui/material';
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
@@ -187,6 +199,10 @@ const fetchTasks = async (projectId) => {
             <>
               <Box sx={{ mt: 3, flexGrow: 1, display: "flex", flexDirection: "column", border: "1px solid #ddd", borderRadius: "8px", overflow: "hidden" }}>
                 <Box sx={{ flexGrow: 1, overflow: "auto" }}>
+                  <TableContainer
+  component={Paper}
+  sx={{ width: '100%', overflowX: 'auto' }}   // 👈 horizontal scroll here
+>
                   <Table stickyHeader>
                     <TableHead>
                       <TableRow sx={{ "& th": { backgroundColor: "#f0f0f0" } }}>
@@ -266,6 +282,7 @@ const fetchTasks = async (projectId) => {
                       })}
                     </TableBody>
                   </Table>
+                  </TableContainer>
                 </Box>
               </Box>
 
