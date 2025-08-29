@@ -20,18 +20,6 @@ import {
   DialogContent,
   DialogActions,
 } from "@mui/material";
-// import {
-//   Box,
-//   Paper,              // 👈 Add this
-//   Table,
-//   TableBody,
-//   TableCell,
-//   TableContainer,
-//   TableHead,
-//   TableRow,
-//   TextField,
-//   MenuItem,
-// } from '@mui/material';
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
@@ -62,6 +50,7 @@ const TimesheetDashboard = () => {
   const email = localStorage.getItem("emailId");
   const resourceId = localStorage.getItem("resourceId");
   const token = localStorage.getItem("accessToken");
+
   // Fetch projects for logged-in user
   useEffect(() => {
     const fetchProjects = async () => {
@@ -72,12 +61,22 @@ const TimesheetDashboard = () => {
           {
             headers: {
               Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
             },
           }
         );
-        if (!res.ok) throw new Error("Failed to fetch projects");
+        if (!res.ok) {
+          console.error("fetchProjects status:", res.status);
+          // try to read body for debugging
+          let txt = "";
+          try {
+            txt = await res.text();
+          } catch (e) {}
+          console.error("fetchProjects response body:", txt);
+          return;
+        }
         const data = await res.json();
-        setProjects(data); // response is an array
+        setProjects(data); // response is an array with projectId/projectName etc.
       } catch (err) {
         console.error("Error fetching projects:", err);
       }
@@ -86,44 +85,102 @@ const TimesheetDashboard = () => {
   }, [resourceId, token]);
 
   // Fetch tasks by projectId
-  // Fetch tasks by projectId
   const fetchTasks = async (projectId) => {
     if (!projectId || !token) return;
     try {
       const res = await fetch(
         `http://localhost:8080/api/tasks/by-project/${projectId}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
       );
-      if (!res.ok) throw new Error("Failed to fetch tasks");
+      if (!res.ok) {
+        console.error("fetchTasks status:", res.status);
+        return;
+      }
       const data = await res.json();
-
-      // Save tasks under the projectId
+      // Save tasks grouped by projectId
       setTasks((prev) => ({ ...prev, [projectId]: data }));
     } catch (err) {
       console.error("Error fetching tasks:", err);
     }
   };
 
-  // Week selection
+  ///////////////////
+
+  // --- new state ---
+  const [timesheetExists, setTimesheetExists] = useState(false);
+
+  // ---- NEW: check existing timesheet ----
+  const checkExistingTimesheet = async (start, end) => {
+    if (!token || !resourceId) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:8080/api/timesheets/check-exists?resourceId=${resourceId}&weekStartDate=${format(
+          start,
+          "yyyy-MM-dd"
+        )}&weekEndDate=${format(end, "yyyy-MM-dd")}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        console.error("checkExistingTimesheet status:", res.status);
+        return;
+      }
+
+      const exists = await res.json(); // backend returns true/false
+      setTimesheetExists(exists);
+
+      if (exists) {
+        alert(
+          "Timesheet already exists for this week. You cannot create another one."
+        );
+      }
+    } catch (err) {
+      console.error("Error checking existing timesheet:", err);
+    }
+  };
+  ////////////
+
+  // Week selection handler
+  // const handleDateSelect = (date) => {
+  //   if (!date) return;
+  //   const start = startOfWeek(date, { weekStartsOn: 1 });
+  //   const end = endOfWeek(date, { weekStartsOn: 1 });
+  //   setSelectedWeek({ start, end });
+  //   setWeekDates(eachDayOfInterval({ start, end }));
+  // };
+
+  // --- update handleDateSelect ---
   const handleDateSelect = (date) => {
+    if (!date) return;
     const start = startOfWeek(date, { weekStartsOn: 1 });
     const end = endOfWeek(date, { weekStartsOn: 1 });
     setSelectedWeek({ start, end });
     setWeekDates(eachDayOfInterval({ start, end }));
+
+    // check if timesheet already exists for this week
+    checkExistingTimesheet(start, end);
   };
 
-  // Add row
+  // Add new empty row
   const handleAddRow = () => {
-    const newRow = { project: "", task: "", hours: {} };
-    setRows([...rows, newRow]);
+    setRows([...rows, { project: "", task: "", hours: {} }]);
   };
 
-  // Open popup
+  // Open dialog for editing a specific cell (rowIndex, date)
   const handleCellClick = (rowIndex, date) => {
     setCurrentEdit({ rowIndex, date });
-    const existing = rows[rowIndex].hours[date.toDateString()] || {
+    const existing = rows[rowIndex].hours?.[date.toDateString()] || {
       billable: 0,
       nonBillable: 0,
       description: "",
@@ -134,29 +191,31 @@ const TimesheetDashboard = () => {
     setOpenDialog(true);
   };
 
-  // Save popup values
+  // Save values from popup into rows
   const handleSaveHours = () => {
     if (!billableHours || !description) {
-      alert("Billable Hours and Description are required");
+      alert("Billable Hours and Description are required.");
       return;
     }
     const updated = [...rows];
+    if (!updated[currentEdit.rowIndex].hours)
+      updated[currentEdit.rowIndex].hours = {};
     updated[currentEdit.rowIndex].hours[currentEdit.date.toDateString()] = {
       billable: Number(billableHours),
-      nonBillable: Number(nonBillableHours),
+      nonBillable: Number(nonBillableHours) || 0,
       description,
     };
     setRows(updated);
     setOpenDialog(false);
   };
 
-  // Row total
+  // Row totals
   const getRowTotal = (row) => {
     let billable = 0,
       nonBillable = 0;
-    Object.values(row.hours).forEach((h) => {
-      billable += h.billable || 0;
-      nonBillable += h.nonBillable || 0;
+    Object.values(row.hours || {}).forEach((h) => {
+      billable += Number(h.billable || 0);
+      nonBillable += Number(h.nonBillable || 0);
     });
     return { billable, nonBillable };
   };
@@ -166,20 +225,121 @@ const TimesheetDashboard = () => {
     let billable = 0,
       nonBillable = 0;
     rows.forEach((row) => {
-      Object.values(row.hours).forEach((h) => {
-        billable += h.billable || 0;
-        nonBillable += h.nonBillable || 0;
+      Object.values(row.hours || {}).forEach((h) => {
+        billable += Number(h.billable || 0);
+        nonBillable += Number(h.nonBillable || 0);
       });
     });
     return { billable, nonBillable };
   };
 
-  const handleSave = () => {
-    alert("Timesheet saved (mock, no localStorage now)");
+  // ---- NEW: build payload and POST to backend ----
+  const handleSave = async () => {
+    try {
+      if (!token || !resourceId) {
+        alert("Session expired or missing. Please login again.");
+        return;
+      }
+
+      // Build lines[]
+      const lines = [];
+
+      // iterate rows
+      for (const row of rows) {
+        // skip incomplete row (no project or no task)
+        if (!row.project || !row.task) continue;
+
+        // collect hours for this line across selected weekDates
+        const hoursArr = [];
+
+        for (const d of weekDates) {
+          const dateKey = d.toDateString();
+          const entry = row.hours?.[dateKey];
+          // only include if user provided some data (billable/nonBillable >0 or description present)
+          if (
+            entry &&
+            ((Number(entry.billable) || 0) > 0 ||
+              (Number(entry.nonBillable) || 0) > 0 ||
+              (entry.description && entry.description.trim() !== ""))
+          ) {
+            hoursArr.push({
+              weekDate: format(d, "yyyy-MM-dd"),
+              workingHours_Billable: Number(entry.billable) || 0,
+              workingHours_NotBillable: Number(entry.nonBillable) || 0,
+              notes: entry.description || "",
+              createdBy: Number(resourceId), // as per your note: createdBy is logged in user
+            });
+          }
+        }
+
+        // if no hours added for this row, skip it
+        if (hoursArr.length === 0) continue;
+
+        lines.push({
+          projectId: Number(row.project),
+          taskId: Number(row.task),
+          status: "New",
+          createdBy: Number(resourceId),
+          hours: hoursArr,
+        });
+      }
+
+      if (lines.length === 0) {
+        alert(
+          "No project/task with hours to save. Please add hours before saving."
+        );
+        return;
+      }
+
+      const payload = {
+        resourceId: Number(resourceId),
+        createdBy: Number(resourceId), // createdBy same as logged-in user
+        weekStartDate: format(selectedWeek.start, "yyyy-MM-dd"),
+        weekEndDate: format(selectedWeek.end, "yyyy-MM-dd"),
+        statusId: 1,
+        lines,
+      };
+
+      // POST to backend
+      const res = await fetch("http://localhost:8080/api/timesheets/submit", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        // success
+        alert("Timesheet saved successfully.");
+        // optionally you can clear rows or mark as saved — keeping rows as-is for now
+        return;
+      } else {
+        // try to parse server error message
+        let errorText = `Server returned ${res.status}`;
+        try {
+          const errJson = await res.json();
+          if (errJson && errJson.message) errorText = errJson.message;
+          else errorText = JSON.stringify(errJson);
+        } catch (e) {
+          // fallback to text
+          try {
+            const txt = await res.text();
+            if (txt) errorText = txt;
+          } catch (e2) {}
+        }
+        alert("Failed to save timesheet: " + errorText);
+      }
+    } catch (err) {
+      console.error("Error while saving timesheet:", err);
+      alert("Error while saving timesheet. See console for details.");
+    }
   };
 
+  // keep submit as before (you can wire it to a different endpoint if needed)
   const handleSubmit = () => {
-    alert("Timesheet submitted!");
+    alert("Submit pressed (not implemented).");
   };
 
   return (
@@ -221,19 +381,24 @@ const TimesheetDashboard = () => {
                 slotProps={{ textField: { fullWidth: true, size: "small" } }}
               />
             </LocalizationProvider>
+
+            {selectedWeek.start && selectedWeek.end && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  Week Start: {selectedWeek.start.toDateString()}
+                </Typography>
+                <Typography variant="body2">
+                  Week End: {selectedWeek.end.toDateString()}
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Drawer>
 
-        {/* Main Content */}
+        {/* Main content */}
         <Box
           component="main"
-          sx={{
-            flexGrow: 1,
-            p: 3,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
+          sx={{ flexGrow: 1, p: 3, mt: 8, overflow: "hidden" }}
         >
           <Toolbar />
           {weekDates.length > 0 && (
@@ -249,11 +414,6 @@ const TimesheetDashboard = () => {
                   overflow: "hidden",
                 }}
               >
-                {/* <Box sx={{ flexGrow: 1, overflow: "auto" }}>
-                  <TableContainer
-                    component={Paper}
-                    sx={{ width: "100%", overflowX: "auto" }} // 👈 horizontal scroll here
-                  > */}
                 <Box
                   sx={{
                     display: "flex",
@@ -272,12 +432,11 @@ const TimesheetDashboard = () => {
                       overflowY: "hidden",
                     }}
                   >
-                    {/* <Table stickyHeader> */}
                     <Table
                       stickyHeader
                       size="small"
                       sx={{
-                        minWidth: 1400, // bump to 1600/1800 if needed
+                        minWidth: 1400,
                         "& th, & td": { whiteSpace: "nowrap" },
                       }}
                     >
@@ -361,7 +520,7 @@ const TimesheetDashboard = () => {
                                 <TableCell key={date}>
                                   <TextField
                                     value={
-                                      row.hours[date.toDateString()]
+                                      row.hours?.[date.toDateString()]
                                         ? `${
                                             row.hours[date.toDateString()]
                                               .billable || 0
@@ -412,11 +571,24 @@ const TimesheetDashboard = () => {
                 >
                   Add Project | Task
                 </Button>
+                {/* <Box sx={{ display: "flex", gap: 2 }}>
+                  <Button variant="outlined" onClick={handleSave}>Save</Button>
+                  <Button variant="contained" onClick={handleSubmit}>Submit</Button>
+                </Box> */}
+                // --- update Save button ---
                 <Box sx={{ display: "flex", gap: 2 }}>
-                  <Button variant="outlined" onClick={handleSave}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleSave}
+                    disabled={timesheetExists} // disable if exists
+                  >
                     Save
                   </Button>
-                  <Button variant="contained" onClick={handleSubmit}>
+                  <Button
+                    variant="contained"
+                    onClick={handleSubmit}
+                    disabled={timesheetExists} // disable if exists
+                  >
                     Submit
                   </Button>
                 </Box>
@@ -424,7 +596,7 @@ const TimesheetDashboard = () => {
             </>
           )}
 
-          {/* Popup dialog */}
+          {/* Dialog */}
           <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
             <DialogTitle>Enter Details</DialogTitle>
             <DialogContent>
