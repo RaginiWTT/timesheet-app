@@ -294,8 +294,6 @@ const TimesheetDashboard = () => {
       const payload = {
         resourceId: Number(resourceId),
         createdBy: Number(resourceId), // createdBy same as logged-in user
-        weekStartDate: format(selectedWeek.start, "yyyy-MM-dd"),
-        weekEndDate: format(selectedWeek.end, "yyyy-MM-dd"),
         statusId: 1,
         lines,
       };
@@ -575,7 +573,7 @@ const TimesheetDashboard = () => {
                   <Button variant="outlined" onClick={handleSave}>Save</Button>
                   <Button variant="contained" onClick={handleSubmit}>Submit</Button>
                 </Box> */}
-                // --- update Save button ---
+               
                 <Box sx={{ display: "flex", gap: 2 }}>
                   <Button
                     variant="outlined"
