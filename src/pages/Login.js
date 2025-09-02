@@ -15,6 +15,7 @@ import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import api from "../services/api";
 import Header from "../components/Header";
 import { useNavigate } from "react-router-dom";
+import ManageTimesheet from "./ManageTimesheet";
 
 function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -59,7 +60,8 @@ function Login() {
         navigate("/dashboard");
       } else {
        // navigate("/dashboard/timesheet-dashboard");
-        navigate("/timesheet-dashboard");
+      //  navigate("/timesheet-dashboard");
+        navigate("/manage-timesheet");
       }
     } catch (err) {
       setError("Invalid credentials. Please try again.");

@@ -16,7 +16,7 @@ import AddUpdateTask from "./pages/AddUpdateTask";
 import AssignResourceManagement from "./pages/AssignResourceManagement";
 import AddUpdateAssignResource from "./pages/AddUpdateAssignResource";
 import TimesheetDashboard from "./pages/TimesheetDashboard";
-
+import ManageTimesheet from "./pages/ManageTimesheet";
 function App() {
   return (
     <Router>
@@ -177,6 +177,16 @@ function App() {
       </ProtectedRoute>
     }
   />
+
+        <Route
+    path="manage-timesheet"
+    element={
+      <ProtectedRoute allowedRoles={["2"]}>
+        <ManageTimesheet />
+      </ProtectedRoute>
+    }
+  />
+
 
         {/* Fallbacks */}
         <Route path="*" element={<Login />} />

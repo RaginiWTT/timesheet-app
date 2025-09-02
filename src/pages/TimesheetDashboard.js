@@ -551,7 +551,7 @@ const TimesheetDashboard = () => {
 
               <Box sx={{ mt: 2 }}>
                 <TextField
-                  value={`Grand Total: ${getGrandTotal().billable} | ${
+                  value={`Total Hours: ${getGrandTotal().billable} | ${
                     getGrandTotal().nonBillable
                   }`}
                   fullWidth
