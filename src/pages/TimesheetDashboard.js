@@ -495,13 +495,13 @@ const TimesheetDashboard = () => {
                           </TableCell>
                           {weekDates.map((date) => (
                             <TableCell key={date.toISOString()}>
-                              <b>{format(date, "MMM-dd-yyyy")}</b>
+                              <b>{format(date, "MM-dd-yyyy")}</b>
                               <br />
                               <small>{format(date, "EEE")}</small>
                             </TableCell>
                           ))}
                           <TableCell>
-                            <b>Billable | NonBillable Hours</b>
+                            <b>Billable |<br/>NonBillable Hours</b>
                           </TableCell>
                         </TableRow>
                       </TableHead>
@@ -578,7 +578,8 @@ const TimesheetDashboard = () => {
                                     onClick={() =>
                                       !readOnly && handleCellClick(rowIndex, date)
                                     }
-                                    fullWidth
+                                    size="small"
+                                    width="50px"
                                     InputProps={{ readOnly: true }}
                                   />
                                 </TableCell>
