@@ -22,22 +22,31 @@ import {
 } from "@mui/material";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
-import { format, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  parseISO,
+} from "date-fns";
 import AddIcon from "@mui/icons-material/Add";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { useParams, useSearchParams, useLocation } from "react-router-dom";
 
 const drawerWidth = 280;
 
 const TimesheetDashboard = () => {
+  const { timesheetId } = useParams(); // may be undefined for new
+  const [searchParams] = useSearchParams();
+  const modeParam = (searchParams.get("mode") || "").toLowerCase();
+  const readOnly = modeParam === "view";
+
   const [selectedWeek, setSelectedWeek] = useState({ start: null, end: null });
   const [weekDates, setWeekDates] = useState([]);
   const [rows, setRows] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentEdit, setCurrentEdit] = useState({
-    rowIndex: null,
-    date: null,
-  });
+  const [currentEdit, setCurrentEdit] = useState({ rowIndex: null, date: null });
   const [billableHours, setBillableHours] = useState("");
   const [nonBillableHours, setNonBillableHours] = useState("");
   const [description, setDescription] = useState("");
@@ -45,8 +54,12 @@ const TimesheetDashboard = () => {
   const [projects, setProjects] = useState([]); // project dropdown data
   const [tasks, setTasks] = useState({}); // tasks mapped by projectId
 
+  const [timesheetExists, setTimesheetExists] = useState(false); // only for NEW
+
   const userName =
-    localStorage.getItem("firstName") + " " + localStorage.getItem("lastName");
+    (localStorage.getItem("firstName") || "") +
+    " " +
+    (localStorage.getItem("lastName") || "");
   const email = localStorage.getItem("emailId");
   const resourceId = localStorage.getItem("resourceId");
   const token = localStorage.getItem("accessToken");
@@ -67,16 +80,12 @@ const TimesheetDashboard = () => {
         );
         if (!res.ok) {
           console.error("fetchProjects status:", res.status);
-          // try to read body for debugging
-          let txt = "";
-          try {
-            txt = await res.text();
-          } catch (e) {}
+          const txt = await res.text().catch(() => "");
           console.error("fetchProjects response body:", txt);
           return;
         }
         const data = await res.json();
-        setProjects(data); // response is an array with projectId/projectName etc.
+        setProjects(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error fetching projects:", err);
       }
@@ -84,9 +93,12 @@ const TimesheetDashboard = () => {
     fetchProjects();
   }, [resourceId, token]);
 
-  // Fetch tasks by projectId
+  // Fetch tasks by projectId (and cache)
   const fetchTasks = async (projectId) => {
     if (!projectId || !token) return;
+    // already cached?
+    if (tasks[projectId]) return;
+
     try {
       const res = await fetch(
         `http://localhost:8080/api/tasks/by-project/${projectId}`,
@@ -102,22 +114,15 @@ const TimesheetDashboard = () => {
         return;
       }
       const data = await res.json();
-      // Save tasks grouped by projectId
-      setTasks((prev) => ({ ...prev, [projectId]: data }));
+      setTasks((prev) => ({ ...prev, [projectId]: data || [] }));
     } catch (err) {
       console.error("Error fetching tasks:", err);
     }
   };
 
-  ///////////////////
-
-  // --- new state ---
-  const [timesheetExists, setTimesheetExists] = useState(false);
-
-  // ---- NEW: check existing timesheet ----
+  // Check if timesheet exists for NEW creation only
   const checkExistingTimesheet = async (start, end) => {
-    if (!token || !resourceId) return;
-
+    if (!token || !resourceId || timesheetId) return; // don't block edit
     try {
       const res = await fetch(
         `http://localhost:8080/api/timesheets/check-exists?resourceId=${resourceId}&weekStartDate=${format(
@@ -137,9 +142,8 @@ const TimesheetDashboard = () => {
         return;
       }
 
-      const exists = await res.json(); // backend returns true/false
-      setTimesheetExists(exists);
-
+      const exists = await res.json();
+      setTimesheetExists(Boolean(exists));
       if (exists) {
         alert(
           "Timesheet already exists for this week. You cannot create another one."
@@ -149,36 +153,27 @@ const TimesheetDashboard = () => {
       console.error("Error checking existing timesheet:", err);
     }
   };
-  ////////////
 
-  // Week selection handler
-  // const handleDateSelect = (date) => {
-  //   if (!date) return;
-  //   const start = startOfWeek(date, { weekStartsOn: 1 });
-  //   const end = endOfWeek(date, { weekStartsOn: 1 });
-  //   setSelectedWeek({ start, end });
-  //   setWeekDates(eachDayOfInterval({ start, end }));
-  // };
-
-  // --- update handleDateSelect ---
+  // Week pick (only for NEW; for existing we’ll set from API)
   const handleDateSelect = (date) => {
-    if (!date) return;
+    if (!date || timesheetId) return; // lock week when editing existing ts
     const start = startOfWeek(date, { weekStartsOn: 1 });
     const end = endOfWeek(date, { weekStartsOn: 1 });
     setSelectedWeek({ start, end });
     setWeekDates(eachDayOfInterval({ start, end }));
 
-    // check if timesheet already exists for this week
     checkExistingTimesheet(start, end);
   };
 
   // Add new empty row
   const handleAddRow = () => {
-    setRows([...rows, { project: "", task: "", hours: {} }]);
+    if (readOnly) return;
+    setRows((prev) => [...prev, { project: "", task: "", hours: {} }]);
   };
 
-  // Open dialog for editing a specific cell (rowIndex, date)
+  // Open popup to edit a cell
   const handleCellClick = (rowIndex, date) => {
+    if (readOnly) return;
     setCurrentEdit({ rowIndex, date });
     const existing = rows[rowIndex].hours?.[date.toDateString()] || {
       billable: 0,
@@ -191,7 +186,7 @@ const TimesheetDashboard = () => {
     setOpenDialog(true);
   };
 
-  // Save values from popup into rows
+  // Save popup values back to table
   const handleSaveHours = () => {
     if (!billableHours || !description) {
       alert("Billable Hours and Description are required.");
@@ -220,7 +215,7 @@ const TimesheetDashboard = () => {
     return { billable, nonBillable };
   };
 
-  // Grand total
+  // Grand totals
   const getGrandTotal = () => {
     let billable = 0,
       nonBillable = 0;
@@ -230,32 +225,30 @@ const TimesheetDashboard = () => {
         nonBillable += Number(h.nonBillable || 0);
       });
     });
-    return { billable, nonBillable };
+    return { billable, nonBillable, total: billable + nonBillable };
   };
 
-  // ---- NEW: build payload and POST to backend ----
+  // Build payload + POST (create or update/upsert)
   const handleSave = async () => {
     try {
       if (!token || !resourceId) {
         alert("Session expired or missing. Please login again.");
         return;
       }
+      if (!selectedWeek.start || !selectedWeek.end) {
+        alert("Please pick a week first.");
+        return;
+      }
 
-      // Build lines[]
       const lines = [];
 
-      // iterate rows
       for (const row of rows) {
-        // skip incomplete row (no project or no task)
         if (!row.project || !row.task) continue;
 
-        // collect hours for this line across selected weekDates
         const hoursArr = [];
-
         for (const d of weekDates) {
           const dateKey = d.toDateString();
           const entry = row.hours?.[dateKey];
-          // only include if user provided some data (billable/nonBillable >0 or description present)
           if (
             entry &&
             ((Number(entry.billable) || 0) > 0 ||
@@ -267,12 +260,11 @@ const TimesheetDashboard = () => {
               workingHours_Billable: Number(entry.billable) || 0,
               workingHours_NotBillable: Number(entry.nonBillable) || 0,
               notes: entry.description || "",
-              createdBy: Number(resourceId), // as per your note: createdBy is logged in user
+              createdBy: Number(resourceId),
             });
           }
         }
 
-        // if no hours added for this row, skip it
         if (hoursArr.length === 0) continue;
 
         lines.push({
@@ -285,20 +277,19 @@ const TimesheetDashboard = () => {
       }
 
       if (lines.length === 0) {
-        alert(
-          "No project/task with hours to save. Please add hours before saving."
-        );
+        alert("No project/task with hours to save.");
         return;
       }
 
       const payload = {
         resourceId: Number(resourceId),
-        createdBy: Number(resourceId), // createdBy same as logged-in user
+        createdBy: Number(resourceId),
         statusId: 1,
+        weekStartDate: format(selectedWeek.start, "yyyy-MM-dd"),
+        weekEndDate: format(selectedWeek.end, "yyyy-MM-dd"),
         lines,
       };
 
-      // POST to backend
       const res = await fetch("http://localhost:8080/api/timesheets/submit", {
         method: "POST",
         headers: {
@@ -309,23 +300,15 @@ const TimesheetDashboard = () => {
       });
 
       if (res.ok) {
-        // success
         alert("Timesheet saved successfully.");
-        // optionally you can clear rows or mark as saved — keeping rows as-is for now
-        return;
       } else {
-        // try to parse server error message
         let errorText = `Server returned ${res.status}`;
         try {
           const errJson = await res.json();
-          if (errJson && errJson.message) errorText = errJson.message;
-          else errorText = JSON.stringify(errJson);
-        } catch (e) {
-          // fallback to text
-          try {
-            const txt = await res.text();
-            if (txt) errorText = txt;
-          } catch (e2) {}
+          errorText = errJson?.message || JSON.stringify(errJson);
+        } catch {
+          const txt = await res.text().catch(() => "");
+          if (txt) errorText = txt;
         }
         alert("Failed to save timesheet: " + errorText);
       }
@@ -335,10 +318,73 @@ const TimesheetDashboard = () => {
     }
   };
 
-  // keep submit as before (you can wire it to a different endpoint if needed)
   const handleSubmit = () => {
+    // hook your submit/approval flow here if different from save
     alert("Submit pressed (not implemented).");
   };
+
+  // -------- Load Existing Timesheet (Edit/View) --------
+  useEffect(() => {
+    const loadExisting = async () => {
+      if (!timesheetId || !token) return;
+
+      try {
+        const res = await fetch(
+          `http://localhost:8080/api/timesheets/${timesheetId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (!res.ok) {
+          console.error("loadExisting status:", res.status);
+          const txt = await res.text().catch(() => "");
+          console.error("loadExisting response:", txt);
+          return;
+        }
+        const data = await res.json();
+
+        // Set week
+        const start = parseISO(data.weekStartDate);
+        const end = parseISO(data.weekEndDate);
+        setSelectedWeek({ start, end });
+        setWeekDates(eachDayOfInterval({ start, end }));
+
+        // Build rows
+        const builtRows = (data.lines || []).map((line) => {
+          const hoursMap = {};
+          (line.hours || []).forEach((h) => {
+            const d = parseISO(h.weekDate);
+            hoursMap[d.toDateString()] = {
+              billable: Number(h.workingHours_Billable || 0),
+              nonBillable: Number(h.workingHours_NotBillable || 0),
+              description: h.notes || "",
+            };
+          });
+          return {
+            project: line.projectId,
+            task: line.taskId,
+            hours: hoursMap,
+          };
+        });
+
+        setRows(builtRows);
+
+        // Preload tasks for each unique project in lines
+        const uniqueProjectIds = [
+          ...new Set((data.lines || []).map((l) => l.projectId)),
+        ];
+        uniqueProjectIds.forEach((pid) => fetchTasks(pid));
+      } catch (err) {
+        console.error("Error loading existing timesheet:", err);
+      }
+    };
+
+    loadExisting();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timesheetId, token]);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -376,6 +422,7 @@ const TimesheetDashboard = () => {
                 label="Pick any day"
                 value={selectedWeek.start}
                 onChange={handleDateSelect}
+                disabled={Boolean(timesheetId)} // lock week for existing timesheets
                 slotProps={{ textField: { fullWidth: true, size: "small" } }}
               />
             </LocalizationProvider>
@@ -439,9 +486,7 @@ const TimesheetDashboard = () => {
                       }}
                     >
                       <TableHead>
-                        <TableRow
-                          sx={{ "& th": { backgroundColor: "#f0f0f0" } }}
-                        >
+                        <TableRow sx={{ "& th": { backgroundColor: "#f0f0f0" } }}>
                           <TableCell>
                             <b>Project</b>
                           </TableCell>
@@ -449,7 +494,7 @@ const TimesheetDashboard = () => {
                             <b>Task</b>
                           </TableCell>
                           {weekDates.map((date) => (
-                            <TableCell key={date}>
+                            <TableCell key={date.toISOString()}>
                               <b>{format(date, "MMM-dd-yyyy")}</b>
                               <br />
                               <small>{format(date, "EEE")}</small>
@@ -480,6 +525,7 @@ const TimesheetDashboard = () => {
                                   }}
                                   fullWidth
                                   size="small"
+                                  disabled={readOnly}
                                 >
                                   {projects.map((p) => (
                                     <MenuItem
@@ -504,6 +550,7 @@ const TimesheetDashboard = () => {
                                   }}
                                   fullWidth
                                   size="small"
+                                  disabled={readOnly}
                                 >
                                   {(tasks[row.project] || []).map((t) => (
                                     <MenuItem key={t.taskId} value={t.taskId}>
@@ -515,7 +562,7 @@ const TimesheetDashboard = () => {
 
                               {/* Hours per day */}
                               {weekDates.map((date) => (
-                                <TableCell key={date}>
+                                <TableCell key={date.toISOString()}>
                                   <TextField
                                     value={
                                       row.hours?.[date.toDateString()]
@@ -529,7 +576,7 @@ const TimesheetDashboard = () => {
                                         : "0 | 0"
                                     }
                                     onClick={() =>
-                                      handleCellClick(rowIndex, date)
+                                      !readOnly && handleCellClick(rowIndex, date)
                                     }
                                     fullWidth
                                     InputProps={{ readOnly: true }}
@@ -553,7 +600,7 @@ const TimesheetDashboard = () => {
                 <TextField
                   value={`Total Hours: ${getGrandTotal().billable} | ${
                     getGrandTotal().nonBillable
-                  }`}
+                  }   (Grand Total: ${getGrandTotal().total})`}
                   fullWidth
                   InputProps={{ readOnly: true }}
                 />
@@ -566,26 +613,23 @@ const TimesheetDashboard = () => {
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={handleAddRow}
+                  disabled={readOnly}
                 >
                   Add Project | Task
                 </Button>
-                {/* <Box sx={{ display: "flex", gap: 2 }}>
-                  <Button variant="outlined" onClick={handleSave}>Save</Button>
-                  <Button variant="contained" onClick={handleSubmit}>Submit</Button>
-                </Box> */}
-               
+
                 <Box sx={{ display: "flex", gap: 2 }}>
                   <Button
                     variant="outlined"
                     onClick={handleSave}
-                    disabled={timesheetExists} // disable if exists
+                    disabled={readOnly}
                   >
                     Save
                   </Button>
                   <Button
                     variant="contained"
                     onClick={handleSubmit}
-                    disabled={timesheetExists} // disable if exists
+                    disabled={readOnly}
                   >
                     Submit
                   </Button>
@@ -604,6 +648,7 @@ const TimesheetDashboard = () => {
                 margin="normal"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                disabled={readOnly}
               />
               <TextField
                 label="Billable Hours"
@@ -612,6 +657,7 @@ const TimesheetDashboard = () => {
                 margin="normal"
                 value={billableHours}
                 onChange={(e) => setBillableHours(e.target.value)}
+                disabled={readOnly}
               />
               <TextField
                 label="Non-Billable Hours"
@@ -620,13 +666,16 @@ const TimesheetDashboard = () => {
                 margin="normal"
                 value={nonBillableHours}
                 onChange={(e) => setNonBillableHours(e.target.value)}
+                disabled={readOnly}
               />
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-              <Button onClick={handleSaveHours} variant="contained">
-                OK
-              </Button>
+              {!readOnly && (
+                <Button onClick={handleSaveHours} variant="contained">
+                  OK
+                </Button>
+              )}
             </DialogActions>
           </Dialog>
         </Box>

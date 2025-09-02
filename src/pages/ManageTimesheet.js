@@ -34,8 +34,9 @@ const ManageTimesheet = () => {
   const fetchTimesheets = async () => {
     try {
       const token = localStorage.getItem("accessToken");
+      const resourceId = localStorage.getItem("resourceId");
       const response = await fetch(
-        "http://localhost:8080/api/timesheets/by-resource/3",
+        `http://localhost:8080/api/timesheets/by-resource/${resourceId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -48,13 +49,19 @@ const ManageTimesheet = () => {
       }
 
       const data = await response.json();
-      setRows(data);
+      setRows(data || []);
     } catch (error) {
       console.error("Error fetching timesheets:", error);
     } finally {
       setLoading(false);
     }
   };
+
+  const userName =
+    (localStorage.getItem("firstName") || "") +
+    " " +
+    (localStorage.getItem("lastName") || "");
+  const email = localStorage.getItem("emailId") || "";
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
@@ -78,10 +85,10 @@ const ManageTimesheet = () => {
           <Box sx={{ p: 2 }}>
             <Divider sx={{ my: 2 }} />
             <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-              Name : {localStorage.getItem("firstName") || "Guest"}
+              Name : {userName.trim() || "Guest"}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Email : {localStorage.getItem("emailId") || "guest@example.com"}
+              Email : {email || "guest@example.com"}
             </Typography>
             <Divider sx={{ my: 2 }} />
             <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: "bold" }}>
@@ -142,7 +149,9 @@ const ManageTimesheet = () => {
                             variant="outlined"
                             color="primary"
                             size="small"
-                            onClick={() => navigate(`/timesheet-dashboard/${row.timesheetId}`)}
+                            onClick={() =>
+                              navigate(`/timesheet-dashboard/${row.timesheetId}?mode=edit`)
+                            }
                           >
                             Edit
                           </Button>
@@ -151,7 +160,9 @@ const ManageTimesheet = () => {
                             variant="outlined"
                             color="secondary"
                             size="small"
-                            onClick={() => navigate(`/timesheet-view/${row.timesheetId}`)}
+                            onClick={() =>
+                              navigate(`/timesheet-dashboard/${row.timesheetId}?mode=view`)
+                            }
                           >
                             View
                           </Button>
