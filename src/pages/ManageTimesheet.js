@@ -91,9 +91,9 @@ const ManageTimesheet = () => {
               Email : {email || "guest@example.com"}
             </Typography>
             <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: "bold" }}>
+            {/* <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: "bold" }}>
               Manage Timesheets
-            </Typography>
+            </Typography> */}
           </Box>
         </Drawer>
 
@@ -109,7 +109,7 @@ const ManageTimesheet = () => {
             }}
           >
             <Typography variant="h5" sx={{ fontWeight: "bold" }}>
-              Manage Timesheet
+              Manage-Timesheet
             </Typography>
             <Button
               variant="contained"

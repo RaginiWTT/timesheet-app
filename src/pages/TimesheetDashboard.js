@@ -46,7 +46,10 @@ const TimesheetDashboard = () => {
   const [weekDates, setWeekDates] = useState([]);
   const [rows, setRows] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentEdit, setCurrentEdit] = useState({ rowIndex: null, date: null });
+  const [currentEdit, setCurrentEdit] = useState({
+    rowIndex: null,
+    date: null,
+  });
   const [billableHours, setBillableHours] = useState("");
   const [nonBillableHours, setNonBillableHours] = useState("");
   const [description, setDescription] = useState("");
@@ -391,7 +394,7 @@ const TimesheetDashboard = () => {
       <Header />
       <Box sx={{ display: "flex", flexGrow: 1, overflow: "hidden" }}>
         {/* Sidebar */}
-        <Drawer
+        {/* <Drawer
           variant="permanent"
           sx={{
             width: drawerWidth,
@@ -438,19 +441,56 @@ const TimesheetDashboard = () => {
               </Box>
             )}
           </Box>
-        </Drawer>
+        </Drawer> */}
+
+ 
 
         {/* Main content */}
         <Box
           component="main"
-          sx={{ flexGrow: 1, p: 3, mt: 8, overflow: "hidden" }}
+          sx={{ flexGrow: 1, p: 2, mt: 6, overflow: "hidden" }}
         >
-          <Toolbar />
+
+                    <Box sx={{ p: 0}}>
+            {/* <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+              Name : {userName}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Email : {email}
+            </Typography>
+            <Divider sx={{ my: 2 }} /> */}
+
+            <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: "bold" }}>
+              Select Week
+            </Typography>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label="Pick any day"
+                value={selectedWeek.start}
+                onChange={handleDateSelect}
+                disabled={Boolean(timesheetId)} // lock week for existing timesheets
+                slotProps={{ textField: { fullWidth: true, size: "small" } }}
+              />
+            </LocalizationProvider>
+
+            {/* {selectedWeek.start && selectedWeek.end && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  Week Start: {selectedWeek.start.toDateString()}
+                </Typography>
+                <Typography variant="body2">
+                  Week End: {selectedWeek.end.toDateString()}
+                </Typography>
+              </Box>
+            )} */}
+          </Box>
+          {/* <Toolbar /> */}
           {weekDates.length > 0 && (
             <>
               <Box
                 sx={{
-                  mt: 3,
+                  mt:1,
                   flexGrow: 1,
                   display: "flex",
                   flexDirection: "column",
@@ -486,7 +526,9 @@ const TimesheetDashboard = () => {
                       }}
                     >
                       <TableHead>
-                        <TableRow sx={{ "& th": { backgroundColor: "#f0f0f0" } }}>
+                        <TableRow
+                          sx={{ "& th": { backgroundColor: "#f0f0f0" } }}
+                        >
                           <TableCell>
                             <b>Project</b>
                           </TableCell>
@@ -501,7 +543,10 @@ const TimesheetDashboard = () => {
                             </TableCell>
                           ))}
                           <TableCell>
-                            <b>Billable |<br/>NonBillable Hours</b>
+                            <b>
+                              Billable |<br />
+                              NonBillable Hours
+                            </b>
                           </TableCell>
                         </TableRow>
                       </TableHead>
@@ -576,11 +621,19 @@ const TimesheetDashboard = () => {
                                         : "0 | 0"
                                     }
                                     onClick={() =>
-                                      !readOnly && handleCellClick(rowIndex, date)
+                                      !readOnly &&
+                                      handleCellClick(rowIndex, date)
                                     }
                                     size="small"
-                                    width="50px"
-                                    InputProps={{ readOnly: true }}
+                                    InputProps={{
+                                      readOnly: true,
+                                      sx: {
+                                        p: 0,
+                                        fontSize: "0.8rem",
+                                        width: 60,
+                                        textAlign: "center",
+                                      }, // compact input
+                                    }}
                                   />
                                 </TableCell>
                               ))}
