@@ -178,6 +178,8 @@ function App() {
     }
   />
 
+  <Route path="/timesheet-dashboard/:timesheetId" element={<TimesheetDashboard />} />
+
         <Route
     path="manage-timesheet"
     element={
